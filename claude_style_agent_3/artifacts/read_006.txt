@@ -1,0 +1,96 @@
+   1: """
+   2: In-memory database layer for user management.
+   3: Simulates a simple user store with CRUD operations.
+   4: """
+   5: 
+   6: from config import DATABASE
+   7: 
+   8: # In-memory user store (simulating a database)
+   9: _USERS = {
+  10:     "alice": {
+  11:         "username": "alice",
+  12:         "password_hash": "5d41402abc4b2a76b9719d911017c592",  # md5("hello")
+  13:         "role": "admin",
+  14:         "email": "alice@example.com",
+  15:         "active": True,
+  16:         "failed_attempts": 0,
+  17:         "profile": {"display_name": "Alice Admin", "department": "Engineering"},
+  18:     },
+  19:     "bob": {
+  20:         "username": "bob",
+  21:         "password_hash": "7d793037a0760186574b0282f2f435e7",  # md5("world")
+  22:         "role": "user",
+  23:         "email": "bob@example.com",
+  24:         "active": True,
+  25:         "failed_attempts": 0,
+  26:         "profile": {"display_name": "Bob User", "department": "Marketing"},
+  27:     },
+  28:     "charlie": {
+  29:         "username": "charlie",
+  30:         "password_hash": "e99a18c428cb38d5f260853678922e03",  # md5("abc123")
+  31:         "role": "user",
+  32:         "email": "charlie@example.com",
+  33:         "active": False,
+  34:         "failed_attempts": 3,
+  35:         "profile": {"display_name": "Charlie Inactive", "department": "Sales"},
+  36:     },
+  37: }
+  38: 
+  39: # Audit log store
+  40: _AUDIT_LOG = []
+  41: 
+  42: 
+  43: def get_user(username):
+  44:     """Look up a user by username. Returns user dict or None."""
+  45:     return _USERS.get(username)
+  46: 
+  47: 
+  48: def get_user_by_id(user_id):
+  49:     """Look up a user by their username (used as ID). Returns user dict or None."""
+  50:     return _USERS.get(user_id)
+  51: 
+  52: 
+  53: def get_all_active_users():
+  54:     """Return list of all active users."""
+  55:     return [u for u in _USERS.values() if u.get("active")]
+  56: 
+  57: 
+  58: def update_user_field(username, field, value):
+  59:     """Update a single field on a user record."""
+  60:     user = _USERS.get(username)
+  61:     if user is None:
+  62:         return False
+  63:     user[field] = value
+  64:     return True
+  65: 
+  66: 
+  67: def increment_failed_attempts(username):
+  68:     """Increment failed login attempts counter."""
+  69:     user = _USERS.get(username)
+  70:     if user:
+  71:         user["failed_attempts"] = user.get("failed_attempts", 0) + 1
+  72:         return user["failed_attempts"]
+  73:     return -1
+  74: 
+  75: 
+  76: def reset_failed_attempts(username):
+  77:     """Reset failed login attempts counter to zero."""
+  78:     return update_user_field(username, "failed_attempts", 0)
+  79: 
+  80: 
+  81: def add_audit_entry(action, username, detail=""):
+  82:     """Append an entry to the audit log."""
+  83:     entry = {
+  84:         "action": action,
+  85:         "username": username,
+  86:         "detail": detail,
+  87:     }
+  88:     _AUDIT_LOG.append(entry)
+  89:     return entry
+  90: 
+  91: 
+  92: def get_audit_log(username=None):
+  93:     """Retrieve audit log entries, optionally filtered by username."""
+  94:     if username:
+  95:         return [e for e in _AUDIT_LOG if e["username"] == username]
+  96:     return list(_AUDIT_LOG)

@@ -1,0 +1,150 @@
+   1: """
+   2: Test suite for the user management system.
+   3: Run with: python test_all.py
+   4: """
+   5: 
+   6: import sys
+   7: import traceback
+   8: 
+   9: from utils import hash_password, verify_password, validate_username, validate_password
+  10: from db import get_user, get_all_active_users
+  11: from auth import login, check_permission
+  12: from routes import handle_login, handle_list_users, handle_get_profile
+  13: 
+  14: 
+  15: def test_hash_password():
+  16:     h = hash_password("hello")
+  17:     assert h == "5d41402abc4b2a76b9719d911017c592", f"Expected md5 of 'hello', got {h}"
+  18: 
+  19: 
+  20: def test_verify_password():
+  21:     assert verify_password("hello", "5d41402abc4b2a76b9719d911017c592")
+  22:     assert not verify_password("wrong", "5d41402abc4b2a76b9719d911017c592")
+  23: 
+  24: 
+  25: def test_validate_username():
+  26:     ok, _ = validate_username("alice")
+  27:     assert ok, "alice should be valid"
+  28:     ok, _ = validate_username("ab")
+  29:     assert not ok, "2-char username should be invalid"
+  30:     ok, _ = validate_username("valid_user_123")
+  31:     assert ok, "alphanumeric with underscore should be valid"
+  32: 
+  33: 
+  34: def test_validate_password():
+  35:     ok, _ = validate_password("short")
+  36:     assert not ok, "Short password should be invalid"
+  37:     ok, _ = validate_password("longpassword!")
+  38:     assert ok, "Long password with special char should be valid"
+  39: 
+  40: 
+  41: def test_get_user():
+  42:     user = get_user("alice")
+  43:     assert user is not None, "alice should exist"
+  44:     assert user["role"] == "admin"
+  45:     assert user["active"] is True
+  46: 
+  47: 
+  48: def test_get_active_users():
+  49:     users = get_all_active_users()
+  50:     names = [u["username"] for u in users]
+  51:     assert "alice" in names, "alice should be active"
+  52:     assert "bob" in names, "bob should be active"
+  53:     assert "charlie" not in names, "charlie should not be active"
+  54: 
+  55: 
+  56: def test_login_success():
+  57:     result = login("alice", "hello")
+  58:     assert isinstance(result, str), f"Expected string, got {type(result)}"
+  59:     assert result.startswith("Bearer "), f"Expected bearer token, got: {result}"
+  60: 
+  61: 
+  62: def test_login_wrong_password():
+  63:     result = login("alice", "wrongpass")
+  64:     assert result.startswith("ERROR:"), f"Expected error, got: {result}"
+  65: 
+  66: 
+  67: def test_login_inactive_user():
+  68:     result = login("charlie", "abc123")
+  69:     assert result.startswith("ERROR:"), f"Expected error for inactive user, got: {result}"
+  70: 
+  71: 
+  72: def test_login_nonexistent():
+  73:     result = login("nobody", "whatever")
+  74:     assert result.startswith("ERROR:"), f"Expected error for nonexistent user, got: {result}"
+  75: 
+  76: 
+  77: def test_check_permission():
+  78:     admin = get_user("alice")
+  79:     regular = get_user("bob")
+  80:     assert check_permission(admin, "admin"), "Alice should have admin permission"
+  81:     assert not check_permission(regular, "admin"), "Bob should not have admin permission"
+  82:     assert check_permission(regular, "user"), "Bob should have user permission"
+  83: 
+  84: 
+  85: def test_handle_login_route():
+  86:     response = handle_login({"username": "alice", "password": "hello"})
+  87:     assert response["status"] == 200, f"Expected 200, got {response['status']}"
+  88:     assert "token" in response["body"], "Response should contain token"
+  89: 
+  90: 
+  91: def test_handle_login_bad_password():
+  92:     response = handle_login({"username": "alice", "password": "wrong"})
+  93:     assert response["status"] == 401, f"Expected 401, got {response['status']}"
+  94: 
+  95: 
+  96: def test_handle_list_users():
+  97:     response = handle_list_users({"authenticated_user": "alice"})
+  98:     assert response["status"] == 200, f"Expected 200, got {response['status']}"
+  99:     assert response["body"]["count"] >= 2, "Should have at least 2 active users"
+ 100: 
+ 101: 
+ 102: def test_handle_list_users_no_auth():
+ 103:     response = handle_list_users({})
+ 104:     assert response["status"] == 401
+ 105: 
+ 106: 
+ 107: def test_handle_get_profile():
+ 108:     response = handle_get_profile({"username": "bob"})
+ 109:     assert response["status"] == 200
+ 110:     assert response["body"]["role"] == "user"
+ 111: 
+ 112: 
+ 113: # --------------- Test runner ---------------
+ 114: 
+ 115: ALL_TESTS = [
+ 116:     test_hash_password,
+ 117:     test_verify_password,
+ 118:     test_validate_username,
+ 119:     test_validate_password,
+ 120:     test_get_user,
+ 121:     test_get_active_users,
+ 122:     test_login_success,
+ 123:     test_login_wrong_password,
+ 124:     test_login_inactive_user,
+ 125:     test_login_nonexistent,
+ 126:     test_check_permission,
+ 127:     test_handle_login_route,
+ 128:     test_handle_login_bad_password,
+ 129:     test_handle_list_users,
+ 130:     test_handle_list_users_no_auth,
+ 131:     test_handle_get_profile,
+ 132: ]
+ 133: 
+ 134: 
+ 135: def main():
+ 136:     passed = 0
+ 137:     failed = 0
+ 138:     errors = []
+ 139: 
+ 140:     for test_fn in ALL_TESTS:
+ 141:         name = test_fn.__name__
+ 142:         try:
+ 143:             test_fn()
+ 144:             passed += 1
+ 145:             print(f"  PASS  {name}")
+ 146:         except Exception as e:
+ 147:             failed += 1
+ 148:             tb = traceback.format_exc()
+ 149:             errors.append((name, tb))
+ 150:             print(f"  FAIL  {name}: {e}")
